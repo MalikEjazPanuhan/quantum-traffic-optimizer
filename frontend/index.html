@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Traffic Optimizer - Global</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Running Quantum Optimization...</p>
+        <div class="sub-text" id="loadingStatus">Processing real-time traffic data</div>
+    </div>
+
+    <div class="container">
+        <h1>
+            <span class="world-icon">🌍</span>
+            <span class="title-text">Quantum Traffic Optimizer</span>
+        </h1>
+        <p class="subtitle">Dynamic <span>QAOA</span> + <span>ML</span> for real-time <span class="highlight-global">global</span> traffic management</p>
+
+        <div class="status-bar">
+            <div class="status-text">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Ready</span>
+            </div>
+            <div>⚡ Quantum Engine: <span style="color:#4ade80;" id="quantumStatus">Active</span></div>
+            <div>📍 <span id="currentCityDisplay" class="city-name">Search a city...</span></div>
+        </div>
+
+        <div class="data-source-bar">
+            <span class="label">📊 Data Source:</span>
+            <span class="source simulated" id="dataSource">🔄 SIMULATED (Demo)</span>
+            <span class="timestamp" id="dataTimestamp">--</span>
+        </div>
+
+        <!-- ============================================
+             GLOBAL SEARCH ONLY (No Dropdown)
+             ============================================ -->
+        <div class="city-selector">
+            <div class="city-search" style="flex:3;">
+                <input type="text" id="citySearchInput" placeholder="🔍 Search any city in the world...">
+                <button class="btn btn-small" id="searchCityBtn">🔍 Search</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn" id="goToCityBtn">📍 Go</button>
+                <button class="btn" id="runBtn">⚡ Run Quantum</button>
+                <button class="btn btn-danger" id="resetBtn">↻ Reset</button>
+            </div>
+        </div>
+
+        <!-- ============================================
+             QUICK POPULAR CITIES - UPDATED (NO INLINE STYLES)
+             ============================================ -->
+        <div class="quick-cities">
+            <span class="label">🌍 Quick:</span>
+            <button class="btn" onclick="quickCity('Lahore, Pakistan')">Lahore</button>
+            <button class="btn" onclick="quickCity('Karachi, Pakistan')">Karachi</button>
+            <button class="btn" onclick="quickCity('Dubai, UAE')">Dubai</button>
+            <button class="btn" onclick="quickCity('London, UK')">London</button>
+            <button class="btn" onclick="quickCity('New York, USA')">New York</button>
+            <button class="btn" onclick="quickCity('Tokyo, Japan')">Tokyo</button>
+            <button class="btn" onclick="quickCity('Singapore, Singapore')">Singapore</button>
+            <button class="btn" onclick="quickCity('Jeddah, Saudi Arabia')">Jeddah</button>
+            <button class="btn" onclick="quickCity('Sydney, Australia')">Sydney</button>
+            <button class="btn" onclick="quickCity('Cairo, Egypt')">Cairo</button>
+        </div>
+
+        <div class="feature-controls">
+            <div class="control-group">
+                <label><input type="checkbox" id="multiVehicle" checked> 🚗 Multi-Vehicle</label>
+                <input type="number" id="numVehicles" value="3" min="1" max="5">
+            </div>
+            <div class="control-group">
+                <label><input type="checkbox" id="usePrediction" checked> 📊 ML Prediction</label>
+                <input type="number" id="hoursAhead" value="24" min="1" max="72">
+            </div>
+            <div class="control-group">
+                <label><input type="checkbox" id="realTimeData" checked> 🌐 Live Data</label>
+            </div>
+            <span id="featureBadges">
+                <span class="feature-badge active">QAOA</span>
+                <span class="feature-badge active" id="mvBadge">Multi-Vehicle</span>
+                <span class="feature-badge active" id="predBadge">ML Prediction</span>
+            </span>
+        </div>
+
+        <div class="legend-container">
+            <span class="legend-title">🚦 Legend:</span>
+            <span class="legend-item"><span class="legend-color green"></span> No Delays</span>
+            <span class="legend-item"><span class="legend-color orange"></span> Medium</span>
+            <span class="legend-item"><span class="legend-color red"></span> Heavy</span>
+            <span class="legend-item"><span class="legend-color darkred"></span> Standstill</span>
+            <span class="legend-item"><span class="legend-color classical"></span> Classical Route</span>
+            <span class="legend-item"><span class="legend-color quantum"></span> Quantum Route</span>
+        </div>
+
+        <div class="main-grid">
+            <div class="map-wrapper">
+                <div id="map">
+                    <div style="display:flex;justify-content:center;align-items:center;height:100%;color:#888;flex-direction:column;gap:16px;">
+                        <div style="width:40px;height:40px;border:4px solid rgba(255,255,255,0.05);border-top-color:#7b2ffc;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                        <p>Loading Google Maps...</p>
+                    </div>
+                </div>
+                
+                <div class="road-status">
+                    <h4>🛣️ Real-time Road Status</h4>
+                    <div id="roadSegments">
+                        <div class="road-segment"><span class="route">Search a city to see roads</span></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                        <span class="tip">💡 Data updates every 5 minutes</span>
+                        <button class="clear-routes-btn" id="clearRoutesBtn">🗑️ Clear Routes</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard">
+                <div class="results" id="resultsPanel">
+                    <div class="kpi-grid" id="kpiGrid">
+                        <div class="kpi-card">
+                            <div class="kpi-value green" id="improvementValue">--</div>
+                            <div class="kpi-label">🎯 Improvement</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value" id="timeSavedValue">--</div>
+                            <div class="kpi-label">⏱️ Time Saved</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value gold" id="fuelSavedValue">--</div>
+                            <div class="kpi-label">⛽ Fuel Saved</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value green" id="co2Value">--</div>
+                            <div class="kpi-label">🌿 CO₂ Reduced</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h4>📊 Cost Comparison: Classical vs Quantum</h4>
+                        <div class="cost-chart" id="costChart">
+                            <div class="cost-bar-group">
+                                <div class="cost-bar classical" id="classicalBar" style="height:100px;"></div>
+                                <div class="cost-bar-label">Classical</div>
+                                <div class="cost-bar-value" id="classicalBarValue">--</div>
+                            </div>
+                            <div class="cost-bar-group">
+                                <div class="cost-bar quantum" id="quantumBar" style="height:60px;"></div>
+                                <div class="cost-bar-label">Quantum</div>
+                                <div class="cost-bar-value" id="quantumBarValue">--</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h4>⚡ Quantum Advantage Benefits</h4>
+                        <div class="savings-grid">
+                            <div class="savings-item">
+                                <div class="savings-value" id="efficiencyValue">--</div>
+                                <div class="savings-label">📈 Efficiency Gain</div>
+                            </div>
+                            <div class="savings-item">
+                                <div class="savings-value" id="congestionValue">--</div>
+                                <div class="savings-label">🚦 Congestion Reduction</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;color:#888;">
+                                <span>Quantum Advantage</span>
+                                <span id="advantagePercent">--</span>
+                            </div>
+                            <div class="advantage-meter">
+                                <div class="advantage-fill" id="advantageFill" style="width:0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="route-comparison">
+                        <div class="route-card classical">
+                            <div class="route-label">🔴 Classical Route</div>
+                            <div class="route-cost" id="classicalCost">--</div>
+                            <div class="route-path" id="classicalPath">A → B → C → D</div>
+                        </div>
+                        <div class="route-card quantum">
+                            <div class="route-label">🟢 Quantum Route</div>
+                            <div class="route-cost" id="quantumCost">--</div>
+                            <div class="route-path" id="quantumPath">A → C → D → B</div>
+                            <div class="improvement-badge" id="improvementBadge" style="display:none;">✨ 25% Better</div>
+                        </div>
+                    </div>
+
+                    <div class="prediction-section" id="predictionSection" style="display:none;">
+                        <h4>📊 Traffic Predictions (Next 24 Hours)</h4>
+                        <div class="prediction-grid" id="predictionChart"></div>
+                    </div>
+
+                    <div class="vehicle-routes" id="vehicleRoutes" style="display:none;">
+                        <h4>🚗 Optimized Vehicle Routes</h4>
+                        <div id="routesDisplay"></div>
+                    </div>
+
+                    <div class="states-grid" id="statesGrid"></div>
+                </div>
+
+                <div class="dashboard-placeholder" id="placeholder">
+                    <div class="icon">⚛️</div>
+                    <p>Search a city and click <span class="highlight">"Run Quantum"</span> to see the optimization results</p>
+                    <div style="margin-top:20px;font-size:12px;color:#666;">Quantum computing + ML for global traffic optimization</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="built-by">
+                Built By <span class="heart">❤️</span> 
+                <span class="name">Muhammad Ejaz</span> 
+                <span class="heart">❤️</span>
+            </div>
+            <div class="tech-stack">
+                Built with <span class="heart-small">❤️</span> 
+                using <span style="color:#7b2ffc;">Qiskit</span>
+                <span class="separator">·</span>
+                <span style="color:#00d4ff;">Flask</span>
+                <span class="separator">·</span>
+                <span style="color:#fbbc04;">Google Maps</span>
+                <span class="separator">·</span>
+                <span style="color:#4ade80;">Quantum Computing</span>
+                <span class="separator">·</span>
+                <span style="color:#f87171;">ML</span>
+                <span class="heart-small">❤️</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDwr5H6ix3zRMJSlIiSEIaMAJfPFZXDtmw&libraries=places&callback=initMap" async defer>
+    </script>
+    
+    <script src="script.js"></script>
+</body>
+</html>

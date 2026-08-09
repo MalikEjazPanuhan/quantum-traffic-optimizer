@@ -1,0 +1,62 @@
+# Virtual Environment
+venv/
+env/
+.venv/
+ENV/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+*.csv
+*.txt
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# Documentation
+*.md
+!README.md
+LICENSE
+CONTRIBUTING.md
+
+# Test Files
+tests/
+test_*.py
+*_test.py
+
+# Build Files
+dist/
+build/
+*.egg-info/
+*.egg
+
+# OS Files
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Project Specific
+screenshots/
+docs/
+*.bak
+*.backup
