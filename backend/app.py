@@ -1,14 +1,19 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template_string
 from flask_cors import CORS
 import sys
 import os
 import json
+import numpy as np
 from datetime import datetime, timedelta
+import random
+from collections import defaultdict
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+import math
 import requests
-import numpy as np
-import random
+
+# Add the backend directory to Python path (for Render)
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import from our separated files
 from traffic_data import RealTimeTrafficFetcher
