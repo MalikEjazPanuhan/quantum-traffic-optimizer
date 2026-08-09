@@ -37,7 +37,7 @@ The **Quantum Traffic Optimizer** is a cutting-edge web application that uses **
 | **APIs** | Google Maps, Google Places, Google Distance Matrix |
 | **ML** | Random Forest, Pandas, NumPy |
 | **Quantum** | Qiskit, QAOA, Aer Simulator |
-| **Deployment** | Docker, Hugging Face Spaces |
+
 
 ---
 
@@ -96,7 +96,7 @@ text
 | **Time Saved** | 5-15 minutes |
 | **Fuel Saved** | 0.5-2.0 liters |
 | **CO₂ Reduced** | 1-5 kg |
-| **Response Time** | 2-4 seconds |
+| **Response Time** | 7-9 seconds |
 
 ---
 
