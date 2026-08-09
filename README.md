@@ -1,14 +1,4 @@
-markdown
----
-title: Quantum Traffic Optimizer
-emoji: 🌍
-colorFrom: blue
-sdk: gradio
-colorTo: purple
-sdk: docker
-pinned: false
-license: mit
----
+
 
 # 🚀 Quantum Traffic Optimizer
 
