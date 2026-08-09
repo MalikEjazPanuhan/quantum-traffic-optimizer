@@ -4,7 +4,7 @@
 
 **Dynamic QAOA + ML for real-time global traffic management**
 
-[![Hugging Face Spaces](https://img.shields.io/badge/Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-brightgreen)](https://quantum-traffic-optimizer.onrender.com)
 [![Python](https://img.shields.io/badge/Python-3.10-blue)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-2.3-green)](https://flask.palletsprojects.com/)
 [![Qiskit](https://img.shields.io/badge/Qiskit-1.0-purple)](https://qiskit.org/)
