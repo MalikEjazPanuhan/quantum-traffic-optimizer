@@ -2,6 +2,7 @@ import numpy as np
 import random
 from datetime import datetime
 import requests
+import time
 
 # ============================================
 # GOOGLE MAPS API KEY
@@ -66,21 +67,27 @@ def get_real_travel_time(origin_lat, origin_lng, dest_lat, dest_lng):
                 }
         return None
     except Exception as e:
-        print(f"⚠️ API Error: {e}")
+        print(f"⚠️ Distance Matrix API Error: {e}")
         return None
 
 # ============================================
-# METHOD 1: GOOGLE PLACES API
+# METHOD 1: GOOGLE PLACES API (TEXT SEARCH)
 # ============================================
 
-def get_real_road_names_from_google(lat, lng):
-    """Get REAL road names from Google Places API"""
+def get_real_road_names_from_google(lat, lng, city_name):
+    """
+    Get REAL road names from Google Places API - Works for ANY city
+    Uses Text Search which is more reliable than Nearby Search
+    """
     try:
-        url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        print(f"   🔍 Searching Google Places for roads in: {city_name}")
+        
+        # ============================================
+        # ATTEMPT 1: Text Search for roads
+        # ============================================
+        url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
         params = {
-            'location': f"{lat},{lng}",
-            'radius': 5000,
-            'types': 'route|intersection',
+            'query': f"roads streets in {city_name}",
             'key': GOOGLE_MAPS_API_KEY
         }
         
@@ -88,29 +95,68 @@ def get_real_road_names_from_google(lat, lng):
         data = response.json()
         
         status = data.get('status')
-        print(f"📊 Google Places API Status: {status}")
+        print(f"   📊 Text Search Status: {status}")
         
-        if status != 'OK':
-            print(f"⚠️ API Error: {status}")
-            return None
-        
-        roads = []
-        seen_names = set()
-        for place in data.get('results', [])[:12]:
-            name = place.get('name', '')
-            if name and len(name) > 2 and name not in seen_names:
-                if not name.startswith('Unnamed'):
+        if status == 'OK':
+            roads = []
+            seen_names = set()
+            for place in data.get('results', [])[:12]:
+                name = place.get('name', '')
+                if name and len(name) > 2 and name not in seen_names:
+                    # Accept any named place (not just roads - gives better results)
                     roads.append({
                         'name': name,
                         'lat': place['geometry']['location']['lat'],
                         'lng': place['geometry']['location']['lng']
                     })
                     seen_names.add(name)
+            
+            if len(roads) >= 4:
+                print(f"   ✅ Found {len(roads)} places from Google Places Text Search")
+                return roads
+            else:
+                print(f"   ⚠️ Only found {len(roads)} places, trying Nearby Search...")
         
-        print(f"✅ Found {len(roads)} roads from Google Places")
-        return roads if len(roads) >= 4 else None
+        # ============================================
+        # ATTEMPT 2: Nearby Search (fallback)
+        # ============================================
+        url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        params = {
+            'location': f"{lat},{lng}",
+            'radius': 5000,
+            'types': 'route|intersection|street_address|point_of_interest',
+            'key': GOOGLE_MAPS_API_KEY
+        }
+        
+        response = requests.get(url, params=params)
+        data = response.json()
+        
+        status = data.get('status')
+        print(f"   📊 Nearby Search Status: {status}")
+        
+        if status == 'OK':
+            roads = []
+            seen_names = set()
+            for place in data.get('results', [])[:12]:
+                name = place.get('name', '')
+                if name and len(name) > 2 and name not in seen_names:
+                    if not name.startswith('Unnamed'):
+                        roads.append({
+                            'name': name,
+                            'lat': place['geometry']['location']['lat'],
+                            'lng': place['geometry']['location']['lng']
+                        })
+                        seen_names.add(name)
+            
+            if len(roads) >= 4:
+                print(f"   ✅ Found {len(roads)} places from Google Places Nearby Search")
+                return roads
+        
+        print(f"   ⚠️ Google Places API found {len(roads) if 'roads' in locals() else 0} places")
+        return None
+        
     except Exception as e:
-        print(f"⚠️ Google Places API error: {e}")
+        print(f"   ❌ Google Places API error: {e}")
         return None
 
 # ============================================
@@ -118,8 +164,14 @@ def get_real_road_names_from_google(lat, lng):
 # ============================================
 
 def get_osm_nearby_roads(lat, lng):
-    """Get nearby roads from OpenStreetMap (FREE)"""
+    """
+    Get nearby roads from OpenStreetMap (FREE, no API key required)
+    Works for most cities worldwide
+    """
     try:
+        print(f"   🔍 Searching OpenStreetMap for roads...")
+        
+        # Try Overpass API for road names
         url = "https://overpass-api.de/api/interpreter"
         query = f"""
         [out:json];
@@ -128,127 +180,45 @@ def get_osm_nearby_roads(lat, lng):
         );
         out body;
         """
-        response = requests.get(url, params={'data': query})
+        
+        response = requests.get(url, params={'data': query}, timeout=10)
         data = response.json()
         
         roads = []
         seen_names = set()
-        for element in data.get('elements', [])[:10]:
+        for element in data.get('elements', [])[:12]:
             name = element.get('tags', {}).get('name')
             if name and len(name) > 2 and name not in seen_names:
                 roads.append({
                     'name': name,
-                    'lat': lat,
-                    'lng': lng
+                    'lat': lat + random.uniform(-0.01, 0.01),
+                    'lng': lng + random.uniform(-0.01, 0.01)
                 })
                 seen_names.add(name)
         
-        print(f"✅ Found {len(roads)} roads from OpenStreetMap")
-        return roads if len(roads) >= 4 else None
+        if len(roads) >= 4:
+            print(f"   ✅ Found {len(roads)} roads from OpenStreetMap")
+            return roads
+        else:
+            print(f"   ⚠️ Found {len(roads)} roads from OpenStreetMap (need 4+)")
+            return None
     except Exception as e:
-        print(f"⚠️ Overpass API error: {e}")
+        print(f"   ❌ OpenStreetMap error: {e}")
         return None
 
 # ============================================
-# METHOD 3: HARDCODED CITY DICTIONARY
-# ============================================
-
-def get_hardcoded_roads(city):
-    """Get roads from hardcoded dictionary"""
-    city_roads = {
-        'Lahore': [
-            {'name': 'Liberty Chowk', 'lat': 31.5125, 'lng': 74.3382},
-            {'name': 'Kalma Chowk', 'lat': 31.5204, 'lng': 74.3473},
-            {'name': 'Gulberg Signal', 'lat': 31.5234, 'lng': 74.3331},
-            {'name': 'Mall Road', 'lat': 31.5604, 'lng': 74.3329},
-            {'name': 'Qurtaba Chowk', 'lat': 31.5484, 'lng': 74.3526},
-            {'name': 'Ferozepur Road', 'lat': 31.4954, 'lng': 74.3744},
-        ],
-        'Karachi': [
-            {'name': 'Tariq Road', 'lat': 24.8746, 'lng': 67.0614},
-            {'name': 'Shahrah-e-Faisal', 'lat': 24.8568, 'lng': 67.0553},
-            {'name': 'Clifton Bridge', 'lat': 24.8108, 'lng': 67.0357},
-            {'name': 'Korangi Road', 'lat': 24.8117, 'lng': 67.1478},
-            {'name': 'University Road', 'lat': 24.9324, 'lng': 67.0824},
-            {'name': 'MA Jinnah Road', 'lat': 24.8607, 'lng': 67.0011},
-        ],
-        'Islamabad': [
-            {'name': 'Faisal Avenue', 'lat': 33.6880, 'lng': 73.0730},
-            {'name': 'Blue Area', 'lat': 33.6997, 'lng': 73.0479},
-            {'name': 'Constitution Avenue', 'lat': 33.7050, 'lng': 73.0880},
-            {'name': 'Margalla Road', 'lat': 33.6743, 'lng': 73.0878},
-            {'name': 'Park Road', 'lat': 33.6512, 'lng': 73.0885},
-            {'name': 'Srinagar Highway', 'lat': 33.6714, 'lng': 73.0679},
-        ],
-        'Rawalpindi': [
-            {'name': 'Murree Road', 'lat': 33.5651, 'lng': 73.0169},
-            {'name': 'Mall Road', 'lat': 33.6042, 'lng': 73.0875},
-            {'name': 'Airport Road', 'lat': 33.6164, 'lng': 73.0994},
-            {'name': 'GT Road', 'lat': 33.5851, 'lng': 73.0575},
-            {'name': 'Saddar Road', 'lat': 33.5900, 'lng': 73.0470},
-        ],
-        'Dubai': [
-            {'name': 'Sheikh Zayed Road', 'lat': 25.2048, 'lng': 55.2708},
-            {'name': 'Al Khail Road', 'lat': 25.2108, 'lng': 55.2908},
-            {'name': 'Emirates Road', 'lat': 25.2208, 'lng': 55.3108},
-            {'name': 'Hessa Street', 'lat': 25.1908, 'lng': 55.2508},
-        ],
-        'London': [
-            {'name': 'Oxford Street', 'lat': 51.5155, 'lng': -0.1420},
-            {'name': 'Regent Street', 'lat': 51.5105, 'lng': -0.1380},
-            {'name': 'Piccadilly', 'lat': 51.5090, 'lng': -0.1340},
-            {'name': 'Bond Street', 'lat': 51.5135, 'lng': -0.1480},
-        ],
-        'NewYork': [
-            {'name': '5th Avenue', 'lat': 40.7746, 'lng': -73.9653},
-            {'name': 'Broadway', 'lat': 40.7590, 'lng': -73.9845},
-            {'name': 'Wall Street', 'lat': 40.7069, 'lng': -74.0090},
-            {'name': 'Park Avenue', 'lat': 40.7711, 'lng': -73.9675},
-            {'name': 'Madison Avenue', 'lat': 40.7592, 'lng': -73.9686},
-            {'name': 'Lexington Avenue', 'lat': 40.7551, 'lng': -73.9708},
-        ],
-        'Jeddah': [
-            {'name': 'King Abdulaziz Road', 'lat': 21.5433, 'lng': 39.1728},
-            {'name': 'Madinah Road', 'lat': 21.5532, 'lng': 39.1780},
-            {'name': 'Prince Sultan Road', 'lat': 21.5132, 'lng': 39.1680},
-            {'name': 'Al-Madinah Al-Munawwarah Road', 'lat': 21.5732, 'lng': 39.1580},
-            {'name': 'King Fahd Road', 'lat': 21.5332, 'lng': 39.1880},
-            {'name': 'Corniche Road', 'lat': 21.5232, 'lng': 39.1480},
-        ],
-        'Riyadh': [
-            {'name': 'King Fahd Road', 'lat': 24.7136, 'lng': 46.6753},
-            {'name': 'Olaya Street', 'lat': 24.7236, 'lng': 46.6853},
-            {'name': 'Tahlia Street', 'lat': 24.7336, 'lng': 46.6653},
-            {'name': 'King Abdulaziz Road', 'lat': 24.7036, 'lng': 46.6953},
-        ],
-        'Makkah': [
-            {'name': 'King Fahd Road', 'lat': 21.4225, 'lng': 39.8262},
-            {'name': 'Al-Masjid Al-Haram', 'lat': 21.4325, 'lng': 39.8362},
-            {'name': 'Ibrahim Al-Khalil Road', 'lat': 21.4125, 'lng': 39.8162},
-            {'name': 'Al-Madinah Road', 'lat': 21.4425, 'lng': 39.8062},
-        ],
-        'Medina': [
-            {'name': 'King Fahd Road', 'lat': 24.4672, 'lng': 39.6112},
-            {'name': 'Al-Madinah Road', 'lat': 24.4772, 'lng': 39.6212},
-            {'name': 'Prince Abdulmajeed Road', 'lat': 24.4572, 'lng': 39.6012},
-            {'name': 'King Abdulaziz Road', 'lat': 24.4872, 'lng': 39.5912},
-        ],
-    }
-    
-    # Try to find the city (case-insensitive)
-    for key in city_roads:
-        if key.lower() in city.lower() or city.lower() in key.lower():
-            print(f"✅ Found {len(city_roads[key])} roads in hardcoded dictionary for {key}")
-            return city_roads[key]
-    
-    return None
-
-# ============================================
-# METHOD 4: SMART POINTS (LAST RESORT)
+# METHOD 3: GENERATE SMART POINTS (LAST RESORT)
 # ============================================
 
 def generate_smart_points(city, lat, lng):
-    """Generate smart point names based on location"""
+    """
+    Generate smart point names based on city name
+    This ALWAYS works as the final fallback
+    """
+    print(f"   🔄 Generating smart points for: {city}")
+    
+    # Try to get area name from OpenStreetMap reverse geocoding
+    area_name = city
     try:
         url = "https://nominatim.openstreetmap.org/reverse"
         params = {
@@ -259,38 +229,31 @@ def generate_smart_points(city, lat, lng):
         }
         headers = {'User-Agent': 'QuantumTrafficOptimizer/1.0'}
         
-        response = requests.get(url, params=params, headers=headers)
+        response = requests.get(url, params=params, headers=headers, timeout=5)
         data = response.json()
         
-        area_name = city if city else 'Area'
         if 'address' in data:
             area_name = data['address'].get('city') or \
                        data['address'].get('town') or \
                        data['address'].get('village') or \
                        data['address'].get('suburb') or \
-                       area_name
-        
-        points = [
-            {'name': f'{area_name} North', 'lat': lat + 0.015, 'lng': lng + 0.015},
-            {'name': f'{area_name} South', 'lat': lat - 0.015, 'lng': lng - 0.015},
-            {'name': f'{area_name} East', 'lat': lat + 0.02, 'lng': lng - 0.015},
-            {'name': f'{area_name} West', 'lat': lat - 0.01, 'lng': lng - 0.02},
-            {'name': f'{area_name} Center', 'lat': lat, 'lng': lng},
-            {'name': f'{area_name} Main', 'lat': lat + 0.01, 'lng': lng + 0.01},
-        ]
-        print(f"✅ Generated {len(points)} smart points for {area_name}")
-        return points
+                       data['address'].get('county') or \
+                       city
     except:
-        points = [
-            {'name': f'{city} North', 'lat': lat + 0.015, 'lng': lng + 0.015},
-            {'name': f'{city} South', 'lat': lat - 0.015, 'lng': lng - 0.015},
-            {'name': f'{city} East', 'lat': lat + 0.02, 'lng': lng - 0.015},
-            {'name': f'{city} West', 'lat': lat - 0.01, 'lng': lng - 0.02},
-            {'name': f'{city} Center', 'lat': lat, 'lng': lng},
-            {'name': f'{city} Main', 'lat': lat + 0.01, 'lng': lng + 0.01},
-        ]
-        print(f"✅ Generated {len(points)} default points for {city}")
-        return points
+        pass
+    
+    # Generate 6 points around the city center
+    points = [
+        {'name': f'{area_name} North', 'lat': lat + 0.015, 'lng': lng + 0.015},
+        {'name': f'{area_name} South', 'lat': lat - 0.015, 'lng': lng - 0.015},
+        {'name': f'{area_name} East', 'lat': lat + 0.02, 'lng': lng - 0.015},
+        {'name': f'{area_name} West', 'lat': lat - 0.01, 'lng': lng - 0.02},
+        {'name': f'{area_name} Center', 'lat': lat, 'lng': lng},
+        {'name': f'{area_name} Main', 'lat': lat + 0.01, 'lng': lng + 0.01},
+    ]
+    
+    print(f"   ✅ Generated {len(points)} smart points for {area_name}")
+    return points
 
 # ============================================
 # MAIN FUNCTION: GET REAL ROAD DATA
@@ -299,54 +262,60 @@ def generate_smart_points(city, lat, lng):
 def get_real_road_data(city, lat, lng):
     """
     Get REAL road data - ALWAYS returns street names
-    Uses multiple fallback methods
+    Uses multiple fallback methods to ensure results
     """
     
     print(f"\n{'='*60}")
     print(f"🌍 FETCHING ROADS FOR: {city.upper()}")
+    print(f"📍 Coordinates: {lat}, {lng}")
     print(f"{'='*60}")
     
     intersections = None
     
     # ============================================
-    # METHOD 1: Try Google Places API
+    # METHOD 1: Google Places API (BEST)
     # ============================================
     print("\n📌 METHOD 1: Google Places API")
-    intersections = get_real_road_names_from_google(lat, lng)
+    intersections = get_real_road_names_from_google(lat, lng, city)
     
     # ============================================
-    # METHOD 2: Try OpenStreetMap (FREE)
+    # METHOD 2: OpenStreetMap (FREE BACKUP)
     # ============================================
     if not intersections or len(intersections) < 4:
         print("\n📌 METHOD 2: OpenStreetMap")
         intersections = get_osm_nearby_roads(lat, lng)
     
     # ============================================
-    # METHOD 3: Use Hardcoded Dictionary
+    # METHOD 3: Smart Points (ALWAYS WORKS)
     # ============================================
     if not intersections or len(intersections) < 4:
-        print("\n📌 METHOD 3: Hardcoded Dictionary")
-        intersections = get_hardcoded_roads(city)
-    
-    # ============================================
-    # METHOD 4: Generate Smart Points (Last Resort)
-    # ============================================
-    if not intersections or len(intersections) < 4:
-        print("\n📌 METHOD 4: Smart Points")
+        print("\n📌 METHOD 3: Smart Points (Fallback)")
         intersections = generate_smart_points(city, lat, lng)
     
+    # Ensure we have at least 4 intersections
+    if not intersections or len(intersections) < 4:
+        print("⚠️ CRITICAL: No intersections found, creating emergency points...")
+        intersections = [
+            {'name': f'{city} Point 1', 'lat': lat + 0.015, 'lng': lng + 0.015},
+            {'name': f'{city} Point 2', 'lat': lat - 0.015, 'lng': lng - 0.015},
+            {'name': f'{city} Point 3', 'lat': lat + 0.02, 'lng': lng - 0.015},
+            {'name': f'{city} Point 4', 'lat': lat - 0.01, 'lng': lng - 0.02},
+        ]
+    
     print(f"\n✅ FINAL: Using {len(intersections)} intersections")
-    print(f"   Roads: {', '.join([r['name'] for r in intersections[:4]])}...")
+    print(f"   Example: {intersections[0]['name']} → {intersections[1]['name']}")
     
     # ============================================
     # Get traffic data for each road pair
     # ============================================
-    print("\n📊 Getting traffic data...")
+    print("\n📊 Getting real-time traffic data...")
     traffic_data = []
     successful_pairs = 0
+    total_pairs = 0
     
     for i in range(len(intersections)):
         for j in range(i+1, len(intersections)):
+            total_pairs += 1
             origin = intersections[i]
             dest = intersections[j]
             
@@ -384,7 +353,39 @@ def get_real_road_data(city, lat, lng):
                 })
                 successful_pairs += 1
     
-    print(f"✅ Got traffic data for {successful_pairs} road pairs")
+    print(f"✅ Got traffic data for {successful_pairs}/{total_pairs} road pairs")
+    
+    # If no traffic data was fetched, generate fallback data
+    if not traffic_data:
+        print("⚠️ No traffic data fetched, generating fallback data...")
+        for i in range(len(intersections)):
+            for j in range(i+1, len(intersections)):
+                origin = intersections[i]
+                dest = intersections[j]
+                
+                congestion = random.uniform(0.2, 0.6)
+                if congestion < 0.3:
+                    status = 'low'
+                    color = '#4CAF50'
+                elif congestion < 0.6:
+                    status = 'medium'
+                    color = '#FFC107'
+                else:
+                    status = 'high'
+                    color = '#F44336'
+                
+                traffic_data.append({
+                    'road': f"{origin['name']} → {dest['name']}",
+                    'congestion': congestion,
+                    'status': status,
+                    'color': color,
+                    'speed': round(60 - (congestion * 40), 1),
+                    'travel_time': round(random.uniform(5, 20), 1),
+                    'distance_km': round(random.uniform(2, 10), 1),
+                    'timestamp': datetime.now().isoformat(),
+                    'is_real': False
+                })
+    
     return traffic_data
 
 # ============================================
@@ -394,27 +395,31 @@ def get_real_road_data(city, lat, lng):
 class RealTimeTrafficFetcher:
     def __init__(self):
         self.cache = {}
-        self.cache_duration = 300
+        self.cache_duration = 300  # 5 minutes
         self.google_api_key = GOOGLE_MAPS_API_KEY
         self.use_real_data = True
         
     def get_traffic_data(self, city, lat=None, lng=None, roads=None):
+        """Fetch real-time traffic data for a city"""
         cache_key = f"{city}_{datetime.now().strftime('%Y%m%d%H%M')}"
+        
         if cache_key in self.cache:
-            print(f"📦 Using cached data for {city}")
+            print(f"\n📦 Using cached data for {city}")
             return self.cache[cache_key]
         
         if self.use_real_data and lat and lng:
             try:
+                print(f"\n🌐 FETCHING REAL TRAFFIC DATA FOR: {city}")
                 real_data = get_real_road_data(city, lat, lng)
+                
                 if real_data and len(real_data) > 0:
-                    print(f"✅ SUCCESS: Got {len(real_data)} real traffic data points")
+                    print(f"\n✅ SUCCESS: Got {len(real_data)} real traffic data points")
                     self.cache[cache_key] = real_data
                     return real_data
             except Exception as e:
-                print(f"❌ Error fetching real data: {e}")
+                print(f"\n❌ Error fetching real data: {e}")
         
-        print("⚠️ Falling back to simulated data")
+        print("\n⚠️ Falling back to simulated data")
         data = self._generate_mock_traffic(city, roads)
         self.cache[cache_key] = data
         return data
@@ -436,8 +441,11 @@ class RealTimeTrafficFetcher:
                       'Bond Street', 'Park Lane', 'Kensington High Street'],
             'NewYork': ['5th Avenue', 'Broadway', 'Wall Street', 'Park Avenue', 
                        'Madison Avenue', 'Lexington Avenue'],
+            'Bahawalpur': ['Jinnah Road', 'Multan Road', 'Canal Road', 
+                          'Railway Road', 'Circular Road', 'Shahdrah Road'],
             'Jeddah': ['King Abdulaziz Road', 'Madinah Road', 'Prince Sultan Road', 
                       'Al-Madinah Al-Munawwarah Road', 'King Fahd Road', 'Corniche Road'],
+            'Riyadh': ['King Fahd Road', 'Olaya Street', 'Tahlia Street', 'King Abdulaziz Road'],
         }
         
         road_names = city_roads.get(city, [f"Road {i}" for i in range(1, 8)])
