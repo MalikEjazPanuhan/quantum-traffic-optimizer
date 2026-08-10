@@ -114,18 +114,36 @@ class QuantumTrafficOptimizer:
     def solve_quantum(self, scenario):
         start_time = time.time()
         print("=" * 60)
-        print("🔬 QUANTUM QAOA (Production Mode)")
+        print("🔬 QUANTUM QAOA (Adaptive Sweet Spot Mode)")
         print("=" * 60)
         
         n = scenario['num_intersections']
         qubo = self.create_qubo(scenario)
         
+        # ============================================
+        # 🎯 THE SWEET SPOT - Adaptive Balance
+        # ============================================
+        if n <= 4:
+            # Full quantum for small problems (better accuracy)
+            shots = 512
+            p = 2
+            print("⚡ FULL QUANTUM MODE (Maximum Accuracy)")
+            print(f"   📊 Using {shots} shots, {p} QAOA layers")
+        else:
+            # Fast mode for larger problems (speed optimized)
+            shots = 256
+            p = 1
+            print("⚡ FAST QUANTUM MODE (Speed Optimized)")
+            print(f"   📊 Using {shots} shots, {p} QAOA layer")
+        
+        # If problem is too large, reduce qubits
         if n > 6:
             print(f"   ⚠️ Reducing qubits from {n} to 6 for performance")
             n = 6
         
         print(f"   📊 Problem size: {n} qubits")
         
+        # Classical baseline
         classical_solution, classical_cost = self._solve_classical(scenario, qubo)
         print(f"   📊 Classical cost: {classical_cost:.2f}")
         
@@ -142,23 +160,28 @@ class QuantumTrafficOptimizer:
             return self._quantum_inspired_fallback(scenario, qubo, classical_solution, classical_cost)
         
         try:
+            # Build quantum circuit with adaptive parameters
             qc = QuantumCircuit(n, n)
             
+            # Initial superposition
             for i in range(n):
                 qc.h(i)
                 qc.rz(0.05 * (1 + qubo[i][i] / 200), i)
             
-            p = 2
             print(f"   📊 QAOA depth: {p} layers")
             
+            # QAOA layers
             for layer in range(p):
+                # Cost Hamiltonian
                 for i in range(n):
                     angle = 0.4 * (1 + qubo[i][i] / 200)
                     qc.rz(angle, i)
                 
+                # Mixer Hamiltonian
                 for i in range(n):
                     qc.rx(0.4 + layer * 0.1, i)
                 
+                # Entanglement
                 for i in range(n-1):
                     if qubo[i][i+1] != 0:
                         qc.cx(i, i+1)
@@ -167,11 +190,11 @@ class QuantumTrafficOptimizer:
                 
                 print(f"   ✅ Layer {layer+1}/{p} complete")
             
+            # Measure
             qc.measure(range(n), range(n))
             
-            print("   ⚡ Running quantum simulation...")
+            print(f"   ⚡ Running quantum simulation with {shots} shots...")
             backend = AerSimulator()
-            shots = 1024
             job = execute(qc, backend, shots=shots)
             result = job.result()
             counts = result.get_counts()
@@ -179,6 +202,7 @@ class QuantumTrafficOptimizer:
             execution_time = time.time() - start_time
             print(f"   ✅ Quantum execution complete in {execution_time:.2f}s")
             
+            # Find best solution from measurements
             best_solution = None
             best_cost = float('inf')
             
@@ -203,6 +227,8 @@ class QuantumTrafficOptimizer:
             print(f"   Classical cost: {classical_cost:.2f}")
             print(f"   Quantum cost: {best_cost:.2f}")
             print(f"   Improvement: {improvement:.1f}%")
+            print(f"   ⚡ Mode: {'FULL QUANTUM' if n <= 4 else 'FAST QUANTUM'}")
+            print(f"   ⚡ Shots: {shots}, Layers: {p}")
             print("=" * 60)
             
             return {
@@ -213,7 +239,10 @@ class QuantumTrafficOptimizer:
                 'counts': counts,
                 'top_states': top_states,
                 'execution_time': execution_time,
-                'improvement': improvement
+                'improvement': improvement,
+                'mode': 'FULL' if n <= 4 else 'FAST',
+                'shots': shots,
+                'layers': p
             }
             
         except Exception as e:
@@ -277,7 +306,8 @@ class QuantumTrafficOptimizer:
             'classical_cost': classical_cost,
             'counts': {},
             'top_states': states,
-            'improvement': improvement
+            'improvement': improvement,
+            'mode': 'FALLBACK'
         }
 
 
@@ -319,6 +349,7 @@ class RouteOptimizer:
         print(f"   Classical cost: {classical_cost:.2f}")
         print(f"   Quantum cost: {quantum_cost:.2f}")
         print(f"   Improvement: {improvement:.1f}%")
+        print(f"   Mode: {results.get('mode', 'UNKNOWN')}")
         print("=" * 60)
         
         return {
@@ -330,7 +361,8 @@ class RouteOptimizer:
             'multi_vehicle_routes': multi_vehicle_routes,
             'top_states': results.get('top_states', []),
             'metrics': metrics,
-            'execution_time': results.get('execution_time', 0)
+            'execution_time': results.get('execution_time', 0),
+            'mode': results.get('mode', 'UNKNOWN')
         }
     
     def _calculate_metrics(self, classical_route, quantum_route, traffic_data, improvement):
