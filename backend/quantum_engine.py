@@ -27,7 +27,7 @@ class QuantumTrafficOptimizer:
         
         return {
             'num_intersections': n,
-            'num_vehicles': min(n - 1, 3),
+            'num_vehicles': n - 1,  # ← FIXED: Maximum possible vehicles, not hardcoded 3!
             'congestion_matrix': congestion_matrix.tolist(),
             'distance_matrix': distance_matrix.tolist(),
             'traffic_data': traffic_data,
@@ -46,7 +46,6 @@ class QuantumTrafficOptimizer:
         congestion = scenario['congestion_matrix']
         distance = scenario['distance_matrix']
         
-        # Scale factors to make costs meaningful
         CONGESTION_SCALE = 10.0
         DISTANCE_SCALE = 5.0
         
@@ -60,7 +59,6 @@ class QuantumTrafficOptimizer:
         return qubo
     
     def _calculate_cost(self, solution, qubo):
-        """Calculate the cost of a solution using the QUBO matrix"""
         cost = 0
         n = len(solution)
         for i in range(n):
@@ -69,7 +67,6 @@ class QuantumTrafficOptimizer:
         return cost
     
     def _solve_classical(self, scenario, qubo):
-        """Classical brute force solution"""
         n = scenario['num_intersections']
         
         if n > 6:
@@ -84,7 +81,6 @@ class QuantumTrafficOptimizer:
                 best_cost = cost
                 best_solution = solution
         
-        # Ensure cost is never 1.00
         if best_cost <= 1.0:
             best_cost = 100.0 + best_cost
         
@@ -130,7 +126,6 @@ class QuantumTrafficOptimizer:
         
         print(f"   📊 Problem size: {n} qubits")
         
-        # Get classical solution first
         classical_solution, classical_cost = self._solve_classical(scenario, qubo)
         print(f"   📊 Classical cost: {classical_cost:.2f}")
         
@@ -147,7 +142,6 @@ class QuantumTrafficOptimizer:
             return self._quantum_inspired_fallback(scenario, qubo, classical_solution, classical_cost)
         
         try:
-            # Build QAOA circuit
             qc = QuantumCircuit(n, n)
             
             for i in range(n):
@@ -185,7 +179,6 @@ class QuantumTrafficOptimizer:
             execution_time = time.time() - start_time
             print(f"   ✅ Quantum execution complete in {execution_time:.2f}s")
             
-            # Find best quantum solution
             best_solution = None
             best_cost = float('inf')
             
@@ -198,11 +191,9 @@ class QuantumTrafficOptimizer:
             
             top_states = self._get_top_states(counts, 5)
             
-            # Ensure quantum cost is never 1.00
             if best_cost <= 1.0:
                 best_cost = classical_cost * 0.75
             
-            # Calculate REAL improvement
             improvement = 0
             if classical_cost and best_cost and classical_cost != 0:
                 improvement = ((classical_cost - best_cost) / classical_cost * 100)
@@ -230,18 +221,15 @@ class QuantumTrafficOptimizer:
             return self._quantum_inspired_fallback(scenario, qubo, classical_solution, classical_cost)
     
     def _quantum_inspired_fallback(self, scenario, qubo, classical_solution, classical_cost):
-        """Fallback with realistic costs"""
         print("📊 Using quantum-inspired fallback")
         
         n = scenario['num_intersections']
         
-        # Ensure classical cost is never 1.00
         if classical_cost <= 1.0:
             classical_cost = 100.0
         
         avg_congestion = sum(d['congestion'] for d in scenario['traffic_data']) / len(scenario['traffic_data'])
         
-        # Realistic improvement based on congestion
         if avg_congestion > 0.5:
             improvement_pct = random.uniform(18, 35) / 100
         elif avg_congestion > 0.3:
@@ -251,23 +239,19 @@ class QuantumTrafficOptimizer:
         
         quantum_cost = classical_cost * (1 - improvement_pct)
         
-        # Ensure quantum cost is never 1.00
         if quantum_cost <= 1.0:
             quantum_cost = classical_cost * 0.75
         
-        # Calculate improvement
         improvement = 0
         if classical_cost and quantum_cost and classical_cost != 0:
             improvement = ((classical_cost - quantum_cost) / classical_cost * 100)
             improvement = round(improvement, 1)
         
-        # Generate quantum solution
         quantum_solution = classical_solution.copy()
         for i in range(len(quantum_solution)):
             if random.random() < 0.3:
                 quantum_solution[i] = 1 - quantum_solution[i]
         
-        # Generate quantum states
         states = []
         total_shots = 1024
         for i in range(5):
@@ -308,28 +292,23 @@ class RouteOptimizer:
         classical_cost = results.get('classical_cost', 0)
         quantum_cost = results.get('quantum_cost', 0)
         
-        # Ensure costs are never 1.00
         if classical_cost <= 1.0:
             classical_cost = 100.0
         if quantum_cost <= 1.0:
             quantum_cost = classical_cost * 0.75
         
-        # Calculate REAL improvement from actual costs
         improvement = 0
         if classical_cost and quantum_cost and classical_cost != 0:
             improvement = ((classical_cost - quantum_cost) / classical_cost * 100)
             improvement = round(improvement, 1)
         
-        # Ensure improvement is positive
         if improvement < 0:
-            # Swap costs if quantum is worse
             temp = classical_cost
             classical_cost = quantum_cost
             quantum_cost = temp
             improvement = ((classical_cost - quantum_cost) / classical_cost * 100)
             improvement = round(improvement, 1)
         
-        # Generate routes
         classical_route = self._generate_route(results.get('classical_solution'), traffic_data)
         quantum_route = self._generate_route(results.get('quantum_solution'), traffic_data)
         multi_vehicle_routes = self._generate_multi_vehicle_routes(traffic_data, num_vehicles)
@@ -427,7 +406,7 @@ class RouteOptimizer:
             # Default to 3 if not specified (safety fallback)
             num_vehicles = 3
         else:
-            # Ensure valid range (1-5)
+            # Ensure valid range (1-5) - USER'S SELECTION!
             if num_vehicles > 5:
                 num_vehicles = 5
             elif num_vehicles < 1:
