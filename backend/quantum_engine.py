@@ -410,15 +410,40 @@ class RouteOptimizer:
             return 0
     
     def _generate_multi_vehicle_routes(self, traffic_data, num_vehicles=None):
+        """
+        Generate routes for multiple vehicles
+        
+        Args:
+            traffic_data: List of traffic data points
+            num_vehicles: Number of vehicles (user selected, 1-5)
+        """
         n = min(len(traffic_data), 6)
         
+        # ============================================
+        # FIXED: Use user's selected number of vehicles
+        # NO HARDCODING - respects user selection (1-5)
+        # ============================================
         if num_vehicles is None or num_vehicles < 1:
-            num_vehicles = min(3, max(1, n - 1))
+            # Default to 3 if not specified (safety fallback)
+            num_vehicles = 3
         else:
-            num_vehicles = min(num_vehicles, n - 1)
-            num_vehicles = min(5, num_vehicles)
-            num_vehicles = max(1, num_vehicles)
+            # Ensure valid range (1-5)
+            if num_vehicles > 5:
+                num_vehicles = 5
+            elif num_vehicles < 1:
+                num_vehicles = 1
         
+        # Can't have more vehicles than roads
+        if num_vehicles > n:
+            num_vehicles = n
+        
+        # Edge case: if n is 0, return empty
+        if n <= 0:
+            return {'routes': [], 'num_vehicles': 0, 'total_congestion': 0}
+        
+        print(f"🚗 Generating routes for {num_vehicles} vehicles with {n} roads")
+        
+        # Distribute roads evenly among vehicles
         roads_per_vehicle = n // num_vehicles
         extra_roads = n % num_vehicles
         
@@ -426,6 +451,7 @@ class RouteOptimizer:
         start = 0
         
         for v in range(num_vehicles):
+            # Distribute extra roads evenly (first vehicles get extra)
             end = start + roads_per_vehicle + (1 if v < extra_roads else 0)
             routes = []
             for i in range(start, end):
@@ -434,6 +460,8 @@ class RouteOptimizer:
             if routes:
                 vehicle_routes.append(routes)
             start = end
+        
+        print(f"   Vehicle distribution: {[len(r) for r in vehicle_routes]}")
         
         return {
             'routes': vehicle_routes,
