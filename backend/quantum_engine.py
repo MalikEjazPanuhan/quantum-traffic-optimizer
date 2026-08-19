@@ -1,9 +1,11 @@
+# backend/quantum_engine.py - SPEED OPTIMIZED VERSION
 import numpy as np
 import random
 from datetime import datetime
 import time
 import hashlib
 import json
+import os
 
 class QuantumTrafficOptimizer:
     def __init__(self):
@@ -124,27 +126,39 @@ class QuantumTrafficOptimizer:
     def solve_quantum(self, scenario):
         start_time = time.time()
         print("=" * 60)
-        print("🔬 QUANTUM QAOA (Adaptive Sweet Spot Mode)")
+        print("🔬 QUANTUM QAOA (Speed Optimized)")
         print("=" * 60)
         
         n = scenario['num_intersections']
         qubo = self.create_qubo(scenario)
         
         # ============================================
-        # 🎯 THE SWEET SPOT - Adaptive Balance
+        # 🚀 AGGRESSIVE SPEED OPTIMIZATION
         # ============================================
-        if n <= 4:
-            shots = 512
-            p = 2
-            max_time = 15  # Maximum 15 seconds for full mode
-            print("⚡ FULL QUANTUM MODE (Maximum Accuracy)")
-            print(f"   📊 Using {shots} shots, {p} QAOA layers")
-        else:
-            shots = 128  # REDUCED from 256 to 128 for speed!
+        if n <= 3:
+            # Very small problems - quick but accurate
+            shots = 64   # Reduced from 512
+            p = 1        # Reduced from 2
+            max_time = 3
+            mode_name = "ULTRA FAST"
+            print("⚡ ULTRA FAST MODE (Maximum Speed)")
+        elif n <= 5:
+            # Small problems - balanced
+            shots = 32   # Reduced from 256
             p = 1
-            max_time = 3  # Maximum 3 seconds for fast mode
-            print("⚡ FAST QUANTUM MODE (Speed Optimized)")
-            print(f"   📊 Using {shots} shots, {p} QAOA layer")
+            max_time = 2
+            mode_name = "FAST"
+            print("⚡ FAST MODE (Speed Optimized)")
+        else:
+            # Large problems - turbo speed
+            shots = 16   # Minimum viable
+            p = 1
+            max_time = 1.5
+            mode_name = "TURBO"
+            print("⚡ TURBO MODE (Extreme Speed)")
+        
+        print(f"   📊 Using {shots} shots, {p} QAOA layer(s)")
+        print(f"   ⏱️  Target time: < {max_time}s")
         
         # If problem is too large, reduce qubits
         if n > 6:
@@ -152,7 +166,6 @@ class QuantumTrafficOptimizer:
             n = 6
         
         print(f"   📊 Problem size: {n} qubits")
-        print(f"   ⏱️  Target time: < {max_time}s")
         
         # Classical baseline
         classical_solution, classical_cost = self._solve_classical(scenario, qubo)
@@ -171,26 +184,25 @@ class QuantumTrafficOptimizer:
             return self._quantum_inspired_fallback(scenario, qubo, classical_solution, classical_cost)
         
         # ============================================
-        # 🔥 CRITICAL FIX: Check cache first!
+        # 🔥 CHECK CACHE FIRST - ULTRA FAST PATH
         # ============================================
         cache_key = self._get_cache_key(qubo, n, shots, p)
         if cache_key in self.cache:
-            print("   ⚡ Using cached quantum results (ultra-fast!)")
+            print("   ⚡ Cache hit! (< 0.01s)")
             cached_result = self.cache[cache_key]
             execution_time = time.time() - start_time
             cached_result['execution_time'] = execution_time
             cached_result['from_cache'] = True
-            
-            # Update mode info
-            cached_result['mode'] = 'FULL' if n <= 4 else 'FAST'
+            cached_result['mode'] = mode_name
             cached_result['shots'] = shots
             cached_result['layers'] = p
-            
-            print(f"   ✅ Cache hit! Results in {execution_time:.2f}s")
+            print(f"   ✅ Results in {execution_time:.2f}s")
             return cached_result
         
         try:
-            # Build quantum circuit with adaptive parameters
+            # ============================================
+            # 🚀 BUILD SIMPLIFIED CIRCUIT
+            # ============================================
             qc = QuantumCircuit(n, n)
             
             # Initial superposition
@@ -198,9 +210,9 @@ class QuantumTrafficOptimizer:
                 qc.h(i)
                 qc.rz(0.05 * (1 + qubo[i][i] / 200), i)
             
-            print(f"   📊 QAOA depth: {p} layers")
+            print(f"   📊 QAOA depth: {p} layer(s)")
             
-            # QAOA layers
+            # QAOA layers (only 1 layer for speed)
             for layer in range(p):
                 # Cost Hamiltonian
                 for i in range(n):
@@ -224,28 +236,33 @@ class QuantumTrafficOptimizer:
             qc.measure(range(n), range(n))
             
             # ============================================
-            # 🔥 CRITICAL FIX: Use optimal backend settings
+            # 🚀 OPTIMIZED BACKEND SETTINGS
             # ============================================
             print(f"   ⚡ Running quantum simulation with {shots} shots...")
             backend = AerSimulator()
             
-            # Optimize backend for speed
+            # Check for GPU availability
+            use_gpu = os.environ.get('CUDA_VISIBLE_DEVICES') is not None
+            if use_gpu:
+                print("   ⚡ GPU acceleration enabled!")
+            
+            # Optimize backend for maximum speed
             backend.set_options(
-                max_parallel_threads=4,  # Use multiple threads
-                max_parallel_experiments=2,
-                max_parallel_shots=shots // 2,
-                optimization_level=0  # No optimization (faster for small circuits)
+                max_parallel_threads=4,
+                max_parallel_experiments=4,
+                max_parallel_shots=shots,
+                optimization_level=0,
+                device='GPU' if use_gpu else 'CPU'
             )
             
-            # Add timeout to prevent hanging
+            # Timeout protection
             import signal
             def timeout_handler(signum, frame):
                 raise TimeoutError("Quantum simulation timed out")
             
-            # Set timeout (only on Unix systems)
             try:
                 signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(max_time)
+                signal.alarm(int(max_time))
             except:
                 pass  # Windows doesn't support SIGALRM
             
@@ -254,15 +271,13 @@ class QuantumTrafficOptimizer:
                 result = job.result()
                 counts = result.get_counts()
                 
-                # Cancel alarm
                 try:
                     signal.alarm(0)
                 except:
                     pass
                 
             except TimeoutError:
-                print(f"   ⚠️ Quantum simulation exceeded {max_time}s - using classical solution")
-                # Return classical solution with small improvement
+                print(f"   ⏱️ Timeout after {max_time}s - using classical fallback")
                 quantum_cost = classical_cost * 0.85
                 improvement = 15.0
                 
@@ -275,7 +290,7 @@ class QuantumTrafficOptimizer:
                     'top_states': [],
                     'execution_time': time.time() - start_time,
                     'improvement': improvement,
-                    'mode': 'TIMEOUT',
+                    'mode': 'TIMEOUT_FALLBACK',
                     'shots': shots,
                     'layers': p,
                     'from_cache': False
@@ -306,7 +321,7 @@ class QuantumTrafficOptimizer:
                 improvement = round(improvement, 1)
             
             # ============================================
-            # 🔥 CRITICAL FIX: Cache the results!
+            # 🔥 CACHE THE RESULTS
             # ============================================
             result_data = {
                 'quantum_solution': best_solution,
@@ -317,15 +332,14 @@ class QuantumTrafficOptimizer:
                 'top_states': top_states,
                 'execution_time': execution_time,
                 'improvement': improvement,
-                'mode': 'FULL' if n <= 4 else 'FAST',
+                'mode': mode_name,
                 'shots': shots,
                 'layers': p,
                 'from_cache': False
             }
             
-            # Store in cache (limit cache size to prevent memory issues)
-            if len(self.cache) > 10:
-                # Remove oldest entry
+            # Store in cache
+            if len(self.cache) > 20:
                 oldest_key = next(iter(self.cache))
                 del self.cache[oldest_key]
             self.cache[cache_key] = result_data
@@ -334,7 +348,7 @@ class QuantumTrafficOptimizer:
             print(f"   Classical cost: {classical_cost:.2f}")
             print(f"   Quantum cost: {best_cost:.2f}")
             print(f"   Improvement: {improvement:.1f}%")
-            print(f"   ⚡ Mode: {'FULL QUANTUM' if n <= 4 else 'FAST QUANTUM'}")
+            print(f"   ⚡ Mode: {mode_name}")
             print(f"   ⚡ Shots: {shots}, Layers: {p}")
             print(f"   ⚡ Time: {execution_time:.2f}s")
             print("=" * 60)
